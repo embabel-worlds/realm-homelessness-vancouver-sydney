@@ -1,0 +1,135 @@
+{
+ "figures": 861,
+ "places": 93,
+ "sources": 6,
+ "latestComparison": [
+  {
+   "compareAs": "inCrisisAccommodation",
+   "place": "City of Sydney",
+   "source": "abs-census",
+   "period": "2021-08",
+   "people": 312,
+   "per10k": 14.5
+  },
+  {
+   "compareAs": "inCrisisAccommodation",
+   "place": "City of Sydney",
+   "source": "cos-street-count",
+   "period": "2026-02",
+   "people": 348,
+   "per10k": 14.4
+  },
+  {
+   "compareAs": "inCrisisAccommodation",
+   "place": "City of Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 1952,
+   "per10k": 29.5
+  },
+  {
+   "compareAs": "inCrisisAccommodation",
+   "place": "Greater Sydney",
+   "source": "abs-census",
+   "period": "2021-08",
+   "people": 2934,
+   "per10k": 5.6
+  },
+  {
+   "compareAs": "inCrisisAccommodation",
+   "place": "Metro Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 3339,
+   "per10k": 10.8
+  },
+  {
+   "compareAs": "oneNightTotal",
+   "place": "City of Sydney",
+   "source": "cos-street-count",
+   "period": "2026-02",
+   "people": 644,
+   "per10k": 26.6
+  },
+  {
+   "compareAs": "oneNightTotal",
+   "place": "City of Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 2715,
+   "per10k": 41.0
+  },
+  {
+   "compareAs": "oneNightTotal",
+   "place": "Metro Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 5232,
+   "per10k": 16.9
+  },
+  {
+   "compareAs": "sleepingOutside",
+   "place": "City of Sydney",
+   "source": "abs-census",
+   "period": "2021-08",
+   "people": 64,
+   "per10k": 3.0
+  },
+  {
+   "compareAs": "sleepingOutside",
+   "place": "City of Sydney",
+   "source": "cos-street-count",
+   "period": "2026-02",
+   "people": 296,
+   "per10k": 12.2
+  },
+  {
+   "compareAs": "sleepingOutside",
+   "place": "City of Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 763,
+   "per10k": 11.5
+  },
+  {
+   "compareAs": "sleepingOutside",
+   "place": "Greater Sydney",
+   "source": "abs-census",
+   "period": "2021-08",
+   "people": 179,
+   "per10k": 0.3
+  },
+  {
+   "compareAs": "sleepingOutside",
+   "place": "Metro Vancouver",
+   "source": "hsabc-pit",
+   "period": "2025-03",
+   "people": 1893,
+   "per10k": 6.1
+  }
+ ],
+ "vancouverSubregions2025": {
+  "Burnaby": 205,
+  "Delta": 75,
+  "Langleys (City and Township)": 243,
+  "New Westminster": 217,
+  "North Shore (CNV, DNV, DWV, Bowen Island)": 168,
+  "Richmond": 175,
+  "Ridge Meadows (Maple Ridge, Pitt Meadows)": 183,
+  "Surrey": 1078,
+  "Tri-Cities (Coquitlam, Port Coquitlam, Port Moody)": 144,
+  "City of Vancouver": 2715,
+  "White Rock": 26,
+  "University Endowment Lands": 3
+ },
+ "sydneyStreetCountPeriods": 27,
+ "greaterSydneyStreetCount": {
+  "2020": 736,
+  "2021": 539,
+  "2022": 470,
+  "2023": 518,
+  "2024": 622,
+  "2025": 729,
+  "2026": 754
+ }
+}

@@ -1,0 +1,89 @@
+# Figures transcribed from the HSABC "2025 Point-in-Time Homeless Count in Greater Vancouver" final
+# report (data/source/hsabc_2025_final.pdf), which is published only as a PDF. Each block names the
+# table it comes from. scripts/build_reference.py reads this file; tests/ground_truth.py checks that
+# sub-regions add up to the regional totals and that sheltered + unsheltered = total.
+#
+# Quirk in the source: Table 3's "Total" row prints 2,174 for 2008; Table 2 and the sum of its own
+# sheltered and unsheltered rows give 2,660, which is used here. And Table 2's sub-regions add up
+# to the regional total only from 2017: for 2005, 2008, 2011 and 2014 (when Delta and White Rock
+# are n/a) they fall short by 12, 17, 14 and 19. Both are transcribed as printed.
+
+report: "2025 Point-in-Time Homeless Count in Greater Vancouver (Homelessness Services Association of BC)"
+url: "https://hsa-bc.ca/_Library/2025_HC/2025_Point-in-Time_Homeless_Count_for_Greater_Vancouver_Final_Report.pdf"
+
+# Table 3 — regional sheltered / unsheltered / total, 2005–2025 (all counts held in March).
+regional:
+  2005: { sheltered: 1127, unsheltered: 1047, total: 2174 }
+  2008: { sheltered: 1086, unsheltered: 1574, total: 2660 }
+  2011: { sheltered: 1892, unsheltered: 758, total: 2650 }
+  2014: { sheltered: 1820, unsheltered: 957, total: 2777 }
+  2017: { sheltered: 2573, unsheltered: 1032, total: 3605 }
+  2020: { sheltered: 2605, unsheltered: 1029, total: 3634 }
+  2023: { sheltered: 3360, unsheltered: 1461, total: 4821 }
+  2025: { sheltered: 3339, unsheltered: 1893, total: 5232 }
+
+# Table 2 — total by sub-region, 2005–2025 (null = the sub-region was not counted that year).
+# Years: 2005, 2008, 2011, 2014, 2017, 2020, 2023, 2025.
+subregionTotals:
+  Burnaby:          [42, 86, 78, 58, 69, 124, 209, 205]
+  Delta:            [null, null, null, null, 19, 17, 44, 75]
+  Langleys:         [57, 86, 103, 92, 206, 209, 235, 243]
+  New Westminster:  [97, 124, 132, 106, 133, 123, 203, 217]
+  North Shore:      [90, 127, 122, 119, 100, 121, 168, 168]
+  Richmond:         [35, 56, 49, 38, 70, 85, 162, 175]
+  Ridge Meadows:    [44, 90, 110, 84, 124, 114, 135, 183]
+  Surrey:           [392, 402, 400, 403, 602, 644, 1060, 1078]
+  Tri-Cities:       [40, 94, 48, 55, 117, 86, 160, 144]
+  Vancouver:        [1364, 1576, 1581, 1803, 2138, 2095, 2420, 2715]
+  White Rock:       [null, null, null, null, 27, 16, 17, 26]
+  UEL:              [null, null, null, null, null, null, 8, 3]
+  Unspecified:      [1, 2, 13, 0, 0, 0, 0, 0]
+subregionYears: [2005, 2008, 2011, 2014, 2017, 2020, 2023, 2025]
+
+# Table 1 — 2025 by sub-region: unsheltered, and sheltered split into extreme-weather-response
+# beds (EWR), shelters (incl. transition and safe houses), and No Fixed Address (in hospital or
+# police cells with nowhere to go on release).
+subregions2025:
+  Burnaby:          { unsheltered: 97,  ewr: 8,   shelters: 89,   nfa: 11,  sheltered: 108,  total: 205 }
+  Delta:            { unsheltered: 58,  ewr: 6,   shelters: 10,   nfa: 1,   sheltered: 17,   total: 75 }
+  Langleys:         { unsheltered: 138, ewr: 17,  shelters: 70,   nfa: 18,  sheltered: 105,  total: 243 }
+  New Westminster:  { unsheltered: 74,  ewr: 3,   shelters: 122,  nfa: 18,  sheltered: 143,  total: 217 }
+  North Shore:      { unsheltered: 85,  ewr: 12,  shelters: 66,   nfa: 5,   sheltered: 83,   total: 168 }
+  Richmond:         { unsheltered: 71,  ewr: 0,   shelters: 98,   nfa: 6,   sheltered: 104,  total: 175 }
+  Ridge Meadows:    { unsheltered: 78,  ewr: 0,   shelters: 88,   nfa: 17,  sheltered: 105,  total: 183 }
+  Surrey:           { unsheltered: 439, ewr: 56,  shelters: 495,  nfa: 88,  sheltered: 639,  total: 1078 }
+  Tri-Cities:       { unsheltered: 69,  ewr: 0,   shelters: 70,   nfa: 5,   sheltered: 75,   total: 144 }
+  Vancouver:        { unsheltered: 763, ewr: 93,  shelters: 1676, nfa: 183, sheltered: 1952, total: 2715 }
+  White Rock:       { unsheltered: 18,  ewr: 0,   shelters: 0,    nfa: 8,   sheltered: 8,    total: 26 }
+  UEL:              { unsheltered: 3,   ewr: 0,   shelters: 0,    nfa: 0,   sheltered: 0,    total: 3 }
+regional2025Split: { ewr: 195, shelters: 2784, nfa: 360 }
+
+# Table 4 — unsheltered by sub-region, 2023.
+subregionUnsheltered2023:
+  Burnaby: 77
+  Delta: 27
+  Langleys: 133
+  New Westminster: 57
+  North Shore: 51
+  Richmond: 80
+  Ridge Meadows: 49
+  Surrey: 301
+  Tri-Cities: 62
+  Vancouver: 605
+  White Rock: 11
+  UEL: 8
+
+# 2025 survey demographics — counts of RESPONDENTS who answered (not of everyone counted).
+# Tables 8/9 (Indigenous identity), 12 (age groups), 22 (gender identity).
+demographics2025:
+  indigenous:   { respondents: 3121, value: 1068, sheltered: 488, unsheltered: 580 }
+  ageUnder25:   { respondents: 3020, value: 172 }
+  age25to54:    { respondents: 3020, value: 2171 }
+  age55plus:    { respondents: 3020, value: 677 }
+  genderMan:    { respondents: 3195, value: 2125 }
+  genderWoman:  { respondents: 3195, value: 977 }
+  genderAnother: { respondents: 3195, value: 93 }
+
+# "Figure 4 shows 17% of those unsheltered stayed with others (e.g. couchsurfing). Of those who
+# were staying in other unsheltered locations, 8% stayed in encampments, and 9% stayed in a vehicle."
+unshelteredCouchSurfingShare2025: 17

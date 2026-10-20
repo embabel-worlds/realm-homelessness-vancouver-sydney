@@ -1,0 +1,150 @@
+# Homelessness in Vancouver and Sydney, stored. Every record is seeded from reference/ (built by
+# scripts/build_reference.py from the published counts) and never fetched.
+#
+#   HomelessnessFigure ─AT─▶ HomelessnessPlace ─WITHIN─▶ HomelessnessPlace
+#   HomelessnessFigure ─FROM─▶ HomelessnessSource
+#   PlacePopulation ─OF─▶ HomelessnessPlace
+#
+# Grain: a HomelessnessFigure is ONE published number — one source, one place, one count
+# (period), one measure. The two cities count different things, so a figure is only ever
+# compared across cities through `compareAs`, never by matching `measure` names or adding
+# figures from different tiers together.
+
+- name: HomelessnessSource
+  description: "One published count or estimate of homelessness, e.g. the Greater Vancouver point-in-time count (`hsabc-pit`), the City of Sydney street count (`cos-street-count`), the ABS census estimate (`abs-census`). Says who is counted and how; read `whoIsCounted` and `caveats` before comparing any two. Figures reach it via (f:HomelessnessFigure)-[:FROM]->(s:HomelessnessSource)."
+  userAnchor: false
+  properties:
+    sourceId:
+      identity: true
+      description: "`hsabc-pit`, `bcstats-annual`, `hicc-capacity` (Vancouver); `cos-street-count`, `nsw-street-count`, `abs-census` (Sydney). Identity."
+    name:
+      description: "The count's published name."
+    city:
+      description: "`Vancouver` or `Sydney` — which side of the comparison the source belongs to."
+    tier:
+      description: "What KIND of count it is: `oneNightStreetAndShelter` (Vancouver PiT: outdoors + shelters + couch-surfing, one night), `oneNightStreet` (Sydney street counts: rough sleepers only, one night), `censusEstimate` (ABS: six groups incl. boarding houses and severe crowding, census night), `annualServiceUse` (BC Stats: anyone seen in a year), `shelterCapacity` (beds, not people). Figures of different tiers measure different things."
+    publisher:
+      description: "Who publishes it."
+    method:
+      description: "How the count is taken."
+    whoIsCounted:
+      description: "Exactly which people (or beds) the count includes."
+    cadence:
+      description: "When it is held, e.g. `2005, 2008, … 2025` or `Annual, 2020–2026`."
+    licence:
+      description: "Licence or terms of the published figures."
+    url:
+      description: "Where the source is published."
+    caveats:
+      description: "What makes it hard to compare — read before quoting a comparison."
+
+- name: HomelessnessPlace
+  description: "A place a figure is about. `scale` is `metro` (Metro Vancouver, Greater Sydney), `city` (City of Vancouver, City of Sydney LGA), `state` (British Columbia, New South Wales), `subregion` (a Greater Vancouver count sub-region, e.g. Surrey) or `lga` (a NSW local government area in the NSW Street Count, e.g. Inner West). Sub-areas reach their parent via WITHIN. NOTE the City of Sydney (about 240,000 people) is far smaller than the City of Vancouver (about 660,000): compare rates, not counts."
+  userAnchor: false
+  properties:
+    placeId:
+      identity: true
+      description: "`van-metro`, `van-city`, `bc`, `syd-metro`, `syd-city`, `nsw`; a Vancouver sub-region `van-surrey`; a NSW LGA `nsw-inner-west`. Identity."
+    name:
+      description: "e.g. `City of Vancouver`, `Greater Sydney`, `Surrey`, `Inner West`. Search with toLower(p.name) CONTAINS."
+    city:
+      description: "`Vancouver` or `Sydney` — the side of the comparison (a NSW LGA outside Sydney still has `Sydney`; use `inGreaterSydney`)."
+    country:
+      description: "`Canada` or `Australia`."
+    scale:
+      description: "`metro`, `city`, `state`, `subregion` or `lga`."
+    parent:
+      description: "placeId of the containing place, if any."
+    inGreaterSydney:
+      type: boolean
+      description: "For a NSW LGA: true when it lies in the Greater Sydney GCCSA."
+    description:
+      description: "One line about the place."
+
+- name: PlacePopulation
+  description: "The population of a place in one year — the denominator behind every `per10k`. Census counts or official annual estimates (StatCan, ABS). Reaches its place via OF."
+  userAnchor: false
+  properties:
+    key:
+      identity: true
+      description: "`<placeId>:<year>`, e.g. `syd-city:2025`. Identity."
+    placeId:
+      description: "The place."
+    year:
+      type: int
+      description: "Year of the population figure."
+    population:
+      type: int
+      description: "Number of residents."
+    kind:
+      description: "`census` or `estimate`."
+    source:
+      description: "Which table it comes from."
+
+- name: HomelessnessFigure
+  description: "ONE published homelessness number: a source's count of one measure, in one place, on one occasion. E.g. Metro Vancouver March 2025 `total` = 5,232; City of Sydney February 2025 `roughSleeping` = 346; Greater Sydney census 2021 `boardingHouses` = 7,485. To compare the cities, filter on `compareAs` (and prefer `per10k`) — never set a Vancouver `total` beside an ABS `total`: the ABS counts boarding houses and severe crowding, which Canada does not call homelessness. Reaches its place via AT and its source via FROM."
+  userAnchor: false
+  properties:
+    figureId:
+      identity: true
+      description: "`<sourceId>:<placeId>:<period>:<measure>`. Identity."
+    sourceId:
+      description: "Which source published it (see HomelessnessSource)."
+    placeId:
+      description: "Which place it is about."
+    city:
+      description: "`Vancouver` or `Sydney`."
+    tier:
+      description: "The source's tier, copied here for filtering: `oneNightStreetAndShelter`, `oneNightStreet`, `censusEstimate`, `annualServiceUse`, `shelterCapacity`."
+    year:
+      type: int
+      description: "Year of the count."
+    period:
+      description: "When it was counted: `YYYY-MM` for a one-night count or census night (`2025-03`, `2025-02`, `2021-08`), `YYYY` for an annual figure. The City of Sydney counted in February AND August until 2021, so a year can have two counts — pick one period, never sum them."
+    measure:
+      description: "What is counted. People: `total`, `sheltered`, `unsheltered`, `shelteredShelters`, `shelteredExtremeWeather`, `shelteredNoFixedAddress` (Vancouver PiT); `roughSleeping`, `occupiedCrisisBeds`, `roughSleepingPlusOccupiedBeds` (Sydney street counts); `improvisedOrSleepingOut`, `supportedAccommodation`, `stayingWithOtherHouseholds`, `boardingHouses`, `otherTemporaryLodging`, `severelyCrowded`, `total` (ABS); `indigenous`. Survey respondents (Vancouver 2025, unit `respondents`): `indigenous`, `ageUnder25`, `age25to54`, `age55plus`, `genderMan`, `genderWoman`, `genderAnother`. Beds (unit `beds`): `emergencyShelterBeds`, `transitionalHousingBeds`, `domesticViolenceShelterBeds`."
+    measureLabel:
+      description: "The measure in words."
+    compareAs:
+      description: "The cross-city family the figure belongs to, set ONLY where the two cities' figures genuinely line up: `sleepingOutside` (Vancouver unsheltered — which also includes couch-surfers — / Sydney rough sleepers / ABS sleeping out), `inCrisisAccommodation` (Vancouver sheltered / Sydney occupied crisis beds / ABS supported accommodation), `oneNightTotal` (Vancouver PiT total / City of Sydney rough sleepers + occupied beds). Absent on figures with no counterpart."
+    value:
+      type: int
+      description: "The number."
+    unit:
+      description: "`persons`, `respondents` (Vancouver survey demographics — of those who answered, not of everyone counted), or `beds`."
+    respondents:
+      type: int
+      description: "For a `respondents` figure: how many answered that question."
+    share:
+      type: number
+      description: "For a `respondents` figure: value as a percentage of respondents."
+    population:
+      type: int
+      description: "Population of the place used for `per10k`."
+    populationYear:
+      type: int
+      description: "Year of that population — the nearest held, which can differ from `year` (the City of Vancouver has census populations for 2016 and 2021 only)."
+    per10k:
+      type: number
+      description: "value per 10,000 residents of the place. The fair way to compare places of different size. Absent where no population is held (sub-regions, LGAs, states) and on subgroup and bed figures."
+    derived:
+      type: boolean
+      description: "True when the realm computed the figure from published ones (e.g. City of Sydney rough sleepers + occupied beds), rather than the source printing it."
+    note:
+      description: "A caveat specific to this figure."
+
+  examples:
+    - q: "compare rough sleeping in Vancouver and Sydney"
+      cypher: |
+        MATCH (f:HomelessnessFigure {compareAs: 'sleepingOutside'})-[:AT]->(p:HomelessnessPlace)
+        WHERE p.scale IN ['city', 'metro'] AND f.per10k IS NOT NULL
+        RETURN f.city AS city, p.name AS place, f.sourceId AS source, f.period AS period,
+               f.measureLabel AS measure, f.value AS people, f.per10k AS per10k
+        ORDER BY period DESC, city LIMIT 40
+    - q: "is homelessness higher in Vancouver or Sydney"
+      cypher: |
+        MATCH (f:HomelessnessFigure)-[:AT]->(p:HomelessnessPlace)
+        WHERE f.compareAs = 'oneNightTotal' AND f.per10k IS NOT NULL
+        RETURN f.city AS city, p.name AS place, f.period AS period, f.value AS people, f.per10k AS per10k,
+               f.measureLabel AS whatIsCounted
+        ORDER BY period DESC LIMIT 20

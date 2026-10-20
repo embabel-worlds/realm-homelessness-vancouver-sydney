@@ -1,0 +1,264 @@
+# The realm's answer surface. Every view reads stored rows seeded from reference/ — nothing is
+# fetched, nothing calls a model — so each is one query and its cost is the engine's alone.
+#
+# The rule every comparison view follows: a Vancouver figure and a Sydney figure appear side by
+# side only through `compareAs`, and rates (`per10k`) are preferred to counts because the City of
+# Sydney is about a third the size of the City of Vancouver. Views that show one source's figures
+# say which source in their name or parameters.
+
+- name: HomelessnessSources
+  description: >-
+    Every count and estimate the realm holds, for both cities - who publishes it, its tier (what
+    kind of count it is), who is counted, how often, the licence and the caveats that make it hard
+    to compare. Read this before comparing Vancouver with Sydney.
+  cypher: |
+    MATCH (s:HomelessnessSource)
+    OPTIONAL MATCH (f:HomelessnessFigure)-[:FROM]->(s)
+    WITH s, count(f) AS figures, min(f.year) AS firstYear, max(f.year) AS lastYear
+    RETURN s.sourceId AS sourceId, s.city AS city, s.name AS name, s.tier AS tier,
+           s.publisher AS publisher, s.whoIsCounted AS whoIsCounted, s.cadence AS cadence,
+           firstYear, lastYear, figures, s.caveats AS caveats, s.licence AS licence, s.url AS url
+    ORDER BY city DESC, tier, sourceId
+
+- name: CityComparison
+  description: >-
+    Vancouver against Sydney for one comparable family of figures, every count held, newest
+    first, as people and per 10,000 residents - City of Vancouver vs City of Sydney and Metro
+    Vancouver vs Greater Sydney. `sleepingOutside` = Vancouver unsheltered (includes couch-surfers)
+    vs Sydney rough sleepers vs ABS sleeping out; `inCrisisAccommodation` = Vancouver sheltered vs
+    Sydney occupied crisis beds vs ABS supported accommodation; `oneNightTotal` = Vancouver
+    point-in-time total vs City of Sydney rough sleepers plus occupied beds. The answer to "is
+    homelessness worse in Vancouver or Sydney".
+  params:
+    compareAs:
+      type: string
+      default: "sleepingOutside"
+      description: "sleepingOutside, inCrisisAccommodation or oneNightTotal."
+    scale:
+      type: string
+      default: "city"
+      description: "city (City of Vancouver vs City of Sydney) or metro (Metro Vancouver vs Greater Sydney)."
+  cypher: |
+    MATCH (f:HomelessnessFigure)-[:AT]->(p:HomelessnessPlace {scale: $scale})
+    WHERE f.compareAs = $compareAs
+    RETURN f.period AS period, f.city AS city, p.name AS place, f.sourceId AS source,
+           f.measureLabel AS whatIsCounted, f.value AS people, f.per10k AS per10k,
+           f.populationYear AS populationYear, f.note AS note
+    ORDER BY period DESC, city
+
+- name: LatestComparison
+  description: >-
+    The headline: the most recent figure each source holds for each comparable family, for the
+    City of Vancouver, City of Sydney, Metro Vancouver and Greater Sydney, with the rate per
+    10,000. One table to set the two cities side by side, newest count only.
+  cypher: |
+    MATCH (f:HomelessnessFigure)-[:AT]->(p:HomelessnessPlace)
+    WHERE f.compareAs IS NOT NULL AND p.scale IN ['city', 'metro']
+    WITH f.placeId AS placeId, f.sourceId AS sourceId, f.compareAs AS compareAs, max(f.period) AS latest
+    MATCH (g:HomelessnessFigure)-[:AT]->(p:HomelessnessPlace)
+    WHERE g.placeId = placeId AND g.sourceId = sourceId AND g.compareAs = compareAs AND g.period = latest
+    RETURN g.compareAs AS compareAs, p.scale AS scale, g.city AS city, p.name AS place,
+           g.sourceId AS source, g.period AS period, g.measureLabel AS whatIsCounted,
+           g.value AS people, g.per10k AS per10k
+    ORDER BY compareAs, scale, city
+
+- name: PlaceSeries
+  description: >-
+    One measure for one place over time, from every source that publishes it - e.g. City of
+    Vancouver `total` by count year, City of Sydney `roughSleeping` every February and August,
+    Metro Vancouver `unsheltered`. With the rate per 10,000 where a population is held.
+  params:
+    placeId:
+      type: string
+      default: "van-city"
+      description: "van-metro, van-city, bc, syd-metro, syd-city, nsw, a sub-region (van-surrey) or a NSW LGA (nsw-inner-west)."
+    measure:
+      type: string
+      default: "total"
+      description: "e.g. total, sheltered, unsheltered, roughSleeping, occupiedCrisisBeds, boardingHouses, emergencyShelterBeds."
+  cypher: |
+    MATCH (f:HomelessnessFigure {placeId: $placeId, measure: $measure})-[:FROM]->(s:HomelessnessSource)
+    RETURN f.period AS period, s.name AS source, s.tier AS tier, f.value AS value, f.unit AS unit,
+           f.per10k AS per10k, f.populationYear AS populationYear, f.derived AS derived, f.note AS note
+    ORDER BY period DESC
+
+- name: CountBreakdown
+  description: >-
+    Every figure one source published for one place on one occasion - e.g. Metro Vancouver March
+    2025 (total, sheltered, unsheltered, the sheltered split, survey demographics), or Greater
+    Sydney's 2021 census estimate by ABS operational group.
+  params:
+    sourceId:
+      type: string
+      default: "hsabc-pit"
+      description: "hsabc-pit, bcstats-annual, hicc-capacity, cos-street-count, nsw-street-count or abs-census."
+    placeId:
+      type: string
+      default: "van-metro"
+      description: "e.g. van-metro, van-city, syd-city, syd-metro."
+    period:
+      type: string
+      default: "2025-03"
+      description: "YYYY-MM for a one-night or census count (2025-03, 2025-02, 2021-08), YYYY for an annual figure."
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: $sourceId, placeId: $placeId, period: $period})
+    RETURN f.measure AS measure, f.measureLabel AS label, f.value AS value, f.unit AS unit,
+           f.share AS sharePct, f.respondents AS respondents, f.per10k AS per10k,
+           f.compareAs AS compareAs, f.derived AS derived, f.note AS note
+    ORDER BY unit DESC, value DESC
+
+- name: VancouverSubregions
+  description: >-
+    Greater Vancouver point-in-time count by sub-region (City of Vancouver, Surrey, Burnaby,
+    Langleys, New Westminster, North Shore, Richmond, Ridge Meadows, Tri-Cities, Delta, White
+    Rock, UEL) for one count year - total, sheltered and unsheltered, largest first. Sheltered and
+    unsheltered are held for 2023 and 2025; earlier years carry totals only.
+  params:
+    year:
+      type: int
+      default: 2025
+      description: "Count year: 2005, 2008, 2011, 2014, 2017, 2020, 2023 or 2025."
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'hsabc-pit', year: $year})-[:AT]->(p:HomelessnessPlace)
+    WHERE p.scale IN ['city', 'subregion'] AND f.measure IN ['total', 'sheltered', 'unsheltered']
+    WITH p, sum(CASE WHEN f.measure = 'total' THEN f.value ELSE 0 END) AS total,
+         max(CASE WHEN f.measure = 'sheltered' THEN f.value END) AS sheltered,
+         max(CASE WHEN f.measure = 'unsheltered' THEN f.value END) AS unsheltered
+    RETURN p.name AS subregion, p.placeId AS placeId, total, sheltered, unsheltered
+    ORDER BY total DESC
+
+- name: SydneyStreetCount
+  description: >-
+    The City of Sydney street count, every count since February 2010 (February and August to
+    2021, February only since) - people sleeping rough, occupied crisis and temporary beds, and the
+    two together, with rough sleepers per 10,000 residents.
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'cos-street-count'})
+    WITH f.period AS period,
+         sum(CASE WHEN f.measure = 'roughSleeping' THEN f.value ELSE 0 END) AS roughSleeping,
+         sum(CASE WHEN f.measure = 'occupiedCrisisBeds' THEN f.value ELSE 0 END) AS occupiedBeds,
+         max(CASE WHEN f.measure = 'roughSleeping' THEN f.per10k END) AS roughPer10k
+    RETURN period, roughSleeping, occupiedBeds, roughSleeping + occupiedBeds AS together, roughPer10k
+    ORDER BY period DESC
+
+- name: NswStreetCountLgas
+  description: >-
+    The NSW Statewide Street Count for one year, people sleeping rough by local government area,
+    largest first - optionally Greater Sydney's LGAs only. The City of Sydney row is the City of
+    Sydney's own count. LGAs not counted that year are absent, not zero.
+  params:
+    year:
+      type: int
+      default: 2026
+      description: "2020 to 2026."
+    greaterSydneyOnly:
+      type: boolean
+      default: true
+      description: "true for the Greater Sydney LGAs only, false for all of NSW."
+  cypher: |
+    MATCH (f:HomelessnessFigure {measure: 'roughSleeping', year: $year})-[:AT]->(p:HomelessnessPlace)
+    WHERE (f.sourceId = 'nsw-street-count' AND p.scale = 'lga'
+           AND ($greaterSydneyOnly = false OR p.inGreaterSydney = true))
+       OR (f.sourceId = 'cos-street-count' AND f.period = toString($year) + '-02')
+    RETURN p.name AS lga, f.value AS roughSleeping, coalesce(p.inGreaterSydney, true) AS inGreaterSydney,
+           f.note AS note
+    ORDER BY roughSleeping DESC, lga
+
+- name: GreaterSydneyStreetCount
+  description: >-
+    People sleeping rough across Greater Sydney each year of the NSW Street Count (2020 to 2026):
+    the sum over the Greater Sydney LGAs counted plus the City of Sydney's February count, how
+    many LGAs were counted, and the NSW total. A sum of the LGAs counted, so it is a floor - not
+    every LGA is counted every year.
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'nsw-street-count', measure: 'roughSleeping'})-[:AT]->(p:HomelessnessPlace)
+    WHERE p.inGreaterSydney = true
+    WITH f.year AS year, sum(f.value) AS otherLgas, count(f) AS lgasCounted
+    MATCH (c:HomelessnessFigure {sourceId: 'cos-street-count', measure: 'roughSleeping'})
+    WHERE c.period = toString(year) + '-02'
+    MATCH (n:HomelessnessFigure {sourceId: 'nsw-street-count', placeId: 'nsw', year: year})
+    RETURN year, c.value AS cityOfSydney, otherLgas, c.value + otherLgas AS greaterSydney,
+           lgasCounted + 1 AS lgasCounted, n.value AS nswTotal
+    ORDER BY year DESC
+
+- name: AbsHomelessGroups
+  description: >-
+    The ABS census estimate of homelessness for a Sydney place, by operational group - sleeping
+    out, supported accommodation, staying with other households, boarding houses, other temporary
+    lodging, severely crowded - with each group's share of the total. Shows why the ABS total is
+    not comparable with Vancouver's: boarding houses and severe crowding dominate it.
+  params:
+    placeId:
+      type: string
+      default: "syd-metro"
+      description: "syd-metro (Greater Sydney, 2021) or syd-city (City of Sydney, 2016 and 2021)."
+    year:
+      type: int
+      default: 2021
+      description: "Census year: 2021, or 2016 for the City of Sydney."
+  cypher: |
+    MATCH (t:HomelessnessFigure {sourceId: 'abs-census', placeId: $placeId, year: $year, measure: 'total'})
+    MATCH (f:HomelessnessFigure {sourceId: 'abs-census', placeId: $placeId, year: $year})
+    WHERE f.measure IN ['improvisedOrSleepingOut', 'supportedAccommodation', 'stayingWithOtherHouseholds',
+                        'boardingHouses', 'otherTemporaryLodging', 'severelyCrowded']
+    RETURN f.measureLabel AS operationalGroup, f.value AS people,
+           round(1000.0 * f.value / t.value) / 10.0 AS sharePct, f.per10k AS per10k,
+           f.compareAs AS comparableWithVancouverAs, t.value AS allHomeless
+    ORDER BY people DESC
+
+- name: VancouverShelterBeds
+  description: >-
+    Shelter beds in the City of Vancouver each year 2016 to 2025 (Statistics Canada shelter
+    capacity) - emergency shelter, transitional housing and domestic-violence shelter beds. Beds,
+    not people.
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'hicc-capacity'})
+    WITH f.year AS year,
+         sum(CASE WHEN f.measure = 'emergencyShelterBeds' THEN f.value ELSE 0 END) AS emergency,
+         sum(CASE WHEN f.measure = 'transitionalHousingBeds' THEN f.value ELSE 0 END) AS transitional,
+         sum(CASE WHEN f.measure = 'domesticViolenceShelterBeds' THEN f.value ELSE 0 END) AS domesticViolence
+    RETURN year, emergency, transitional, domesticViolence, emergency + transitional + domesticViolence AS allBeds
+    ORDER BY year DESC
+
+- name: BcAnnualEstimate
+  description: >-
+    BC Stats' annual estimate of homelessness, 2019 to 2024 - everyone who stayed in a shelter or
+    was on income assistance with no fixed address during the year - for Greater Vancouver and
+    British Columbia. A year's worth of people, not one night: compare only with itself.
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'bcstats-annual'})-[:AT]->(p:HomelessnessPlace)
+    RETURN f.year AS year, p.name AS place, f.value AS people, f.per10k AS per10k
+    ORDER BY year DESC, place
+
+- name: VancouverDemographics
+  description: >-
+    Who was counted in Metro Vancouver in March 2025, from the survey - Indigenous identity, age
+    group and gender - as counts and shares of those who answered each question. Survey
+    respondents only (about 3,000 of 5,232), so shares, not totals. Sydney's street counts carry
+    no demographics; the ABS Greater Sydney Indigenous figure is in CountBreakdown.
+  cypher: |
+    MATCH (f:HomelessnessFigure {sourceId: 'hsabc-pit', placeId: 'van-metro', unit: 'respondents'})
+    RETURN f.measureLabel AS group, f.value AS respondents, f.respondents AS answered, f.share AS sharePct
+    ORDER BY answered, respondents DESC
+
+- name: HomelessnessPlaces
+  description: >-
+    The places figures are held for - metro areas, cities, states, Greater Vancouver count
+    sub-regions and NSW LGAs - with how many figures each has, the years covered, and the latest
+    population held. The way to find a placeId.
+  params:
+    city:
+      type: string
+      default: ""
+      description: "Vancouver or Sydney; empty for both."
+  cypher: |
+    MATCH (p:HomelessnessPlace)
+    WHERE $city = '' OR p.city = $city
+    OPTIONAL MATCH (f:HomelessnessFigure)-[:AT]->(p)
+    WITH p, count(f) AS figures, min(f.year) AS firstYear, max(f.year) AS lastYear
+    OPTIONAL MATCH (pop:PlacePopulation)-[:OF]->(p)
+    WITH p, figures, firstYear, lastYear, max(pop.year) AS popYear
+    OPTIONAL MATCH (latest:PlacePopulation {placeId: p.placeId, year: popYear})
+    RETURN p.placeId AS placeId, p.name AS name, p.city AS city, p.scale AS scale, p.parent AS parent,
+           figures, firstYear, lastYear, latest.population AS population, popYear AS populationYear
+    ORDER BY city DESC, scale, name
