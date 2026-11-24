@@ -1,7 +1,7 @@
 name: homelessness-vancouver-sydney
 description: |
-  Homelessness in Vancouver and Sydney, side by side, from the counts each city actually
-  publishes — stored, so a comparison is one query over the realm's own rows.
+  Homelessness counts for Vancouver and Sydney, side by side, as each city publishes them.
+  Stored, so a comparison is one query over the realm's own rows.
 
   Vancouver: the Greater Vancouver point-in-time count 2005–2025 (regional, sheltered and
   unsheltered, by sub-region incl. the City of Vancouver, 2025 survey demographics), BC Stats'
@@ -15,7 +15,7 @@ description: |
   family — sleepingOutside, inCrisisAccommodation, oneNightTotal. What it does NOT carry: the
   City of Vancouver's own off-cycle counts, Specialist Homelessness Services client data below
   state level, demographics for Sydney's street counts. Keyless.
-version: 0.1.0
+version: 0.1.1
 maturity: experimental
 url: https://github.com/embabel-worlds/realm-homelessness-vancouver-sydney
 author: Rod Johnson
