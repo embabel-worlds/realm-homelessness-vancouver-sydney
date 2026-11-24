@@ -8,8 +8,7 @@
 
 - name: HomelessnessSources
   description: >-
-    Which homelessness counts the realm holds, and how each one counts.
-    Every count and estimate the realm holds, for both cities - who publishes it, its tier (what
+    Every count and estimate the realm holds, for both cities. Who publishes it, its tier (what
     kind of count it is), who is counted, how often, the licence and the caveats that make it hard
     to compare. Read this before comparing Vancouver with Sydney. One row per source; it lists sources, not figures.
   cypher: |
@@ -23,8 +22,7 @@
 
 - name: CityComparison
   description: >-
-    Vancouver vs Sydney over time for one comparable family, per 10,000.
-    Vancouver against Sydney for one comparable family of figures, every count held, newest
+    Vancouver against Sydney for one comparable family of figures. Every count held, newest
     first, as people and per 10,000 residents - City of Vancouver vs City of Sydney and Metro
     Vancouver vs Greater Sydney. `sleepingOutside` = Vancouver unsheltered (includes couch-surfers)
     vs Sydney rough sleepers vs ABS sleeping out; `inCrisisAccommodation` = Vancouver sheltered vs
@@ -67,7 +65,6 @@
 
 - name: PlaceSeries
   description: >-
-    One homelessness measure for one place, every year or count held.
     One measure for one place over time, from every source that publishes it - e.g. City of
     Vancouver `total` by count year, City of Sydney `roughSleeping` every February and August,
     Metro Vancouver `unsheltered`. With the rate per 10,000 where a population is held. Only the one place and measure asked for; exact placeId and measure, no partial match.
@@ -88,7 +85,6 @@
 
 - name: CountBreakdown
   description: >-
-    Every figure one source published for one place on one occasion.
     Every figure one source published for one place on one occasion - e.g. Metro Vancouver March
     2025 (total, sheltered, unsheltered, the sheltered split, survey demographics), or Greater
     Sydney's 2021 census estimate by ABS operational group. Only that occasion - pick the period from PlaceSeries; exact ids, no partial match.
@@ -150,8 +146,7 @@
 
 - name: NswStreetCountLgas
   description: >-
-    NSW Street Count: people sleeping rough by LGA for one year.
-    The NSW Statewide Street Count for one year, people sleeping rough by local government area,
+    The NSW Statewide Street Count for one year. People sleeping rough by local government area,
     largest first - optionally Greater Sydney's LGAs only. The City of Sydney row is the City of
     Sydney's own count. LGAs not counted that year are absent, not zero.
   params:
@@ -192,8 +187,7 @@
 
 - name: AbsHomelessGroups
   description: >-
-    ABS census homelessness for a Sydney place by operational group.
-    The ABS census estimate of homelessness for a Sydney place, by operational group - sleeping
+    The ABS census estimate of homelessness for a Sydney place. By operational group - sleeping
     out, supported accommodation, staying with other households, boarding houses, other temporary
     lodging, severely crowded - with each group's share of the total. Shows why the ABS total is
     not comparable with Vancouver's: boarding houses and severe crowding dominate it.
@@ -233,8 +227,7 @@
 
 - name: BcAnnualEstimate
   description: >-
-    BC Stats annual homelessness estimate, Greater Vancouver and BC, 2019-2024.
-    BC Stats' annual estimate of homelessness, 2019 to 2024 - everyone who stayed in a shelter or
+    BC Stats' annual estimate of homelessness, 2019 to 2024. Everyone who stayed in a shelter or
     was on income assistance with no fixed address during the year - for Greater Vancouver and
     British Columbia. A year's worth of people, not one night: compare only with itself.
   cypher: |
@@ -244,8 +237,7 @@
 
 - name: VancouverDemographics
   description: >-
-    Metro Vancouver 2025 count survey: Indigenous identity, age and gender.
-    Who was counted in Metro Vancouver in March 2025, from the survey - Indigenous identity, age
+    Who was counted in Metro Vancouver in March 2025, from the survey. Indigenous identity, age
     group and gender - as counts and shares of those who answered each question. Survey
     respondents only (about 3,000 of 5,232), so shares, not totals. Sydney's street counts carry
     no demographics; the ABS Greater Sydney Indigenous figure is in CountBreakdown.
