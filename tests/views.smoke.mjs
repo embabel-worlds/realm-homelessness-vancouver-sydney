@@ -17,20 +17,68 @@ const password = process.env.EMBABEL_PASSWORD ?? process.env.APPLIANCE_PASSWORD;
 if (!user || !password) { console.error('Set EMBABEL_USER and EMBABEL_PASSWORD.'); process.exit(2); }
 const expected = JSON.parse(readFileSync(new URL('./expected.json', import.meta.url), 'utf8'));
 
+/*
+ * Whether an engine answer is the whole truth. A source that failed under load, a capped page or a
+ * refused hop leaves rows that look like an answer while the figure is short, and a check that reads
+ * only the rows reports drift that is not the realm's. Query answers (/admin/kg/execute, /kg/ask)
+ * carry `error`, `reason`, `run` and `warnings` as strings opening with the engine's code; a view
+ * envelope carries `status`, `outcome` and `warnings` as {code, message}. short(d) is null when
+ * whole, else the line to print in place of the figure: "REFUSED: <why>" or "PARTIAL <n>: <reason>".
+ */
+const SHORT_CODES = new Set(['PARTIAL_RESULT', 'PRODUCER_ERROR', 'NEEDS_FILTER', 'NEEDS_PRODUCER', 'FILTER_REJECTED',
+  'UNPUSHED_FILTER', 'AMBIGUOUS_LABEL', 'INCOMPLETE_TRAVERSAL', 'INCOMPLETE_RANKING', 'INCOMPLETE_AGGREGATE',
+  'INCOMPLETE_INPUT', 'MATERIALIZATION_FAILED', 'REDUCTION_FAILED', 'UNPARSEABLE_ANSWER', 'TERMS_UNAVAILABLE',
+  'COMPUTE_FAILED', 'PROPERTY_NOT_STORED', 'FOLLOW_CAPPED', 'UNLINKED_CHILDREN', 'RESOLUTION_DROPPED',
+  'AGENTIC_DEGRADED', 'SOURCE_UNANSWERED'])
+const SHORT_REASONS = new Set(['UNBOUNDED', 'PARTIAL_NOT_MATCHED', 'UNPUSHED_FILTER', 'DISCONNECTED',
+  'INTERNAL_ERROR', 'WRITE_IN_PROGRESS', 'KILLED', 'TOO_EXPENSIVE'])
+const SHORT_PUBLIC = new Set(['PARTIAL', 'REDUCTION_FAILED', 'COMPUTE_FAILED', 'PROPERTY_NOT_STORED',
+  'AGENTIC_DEGRADED', 'RATE_LIMITED', 'SOURCE_UNAVAILABLE', 'SOURCE_REJECTED', 'INVALID_FILTER',
+  'UNPUSHED_FILTER', 'TOO_BROAD', 'FETCH_CAPPED', 'INDEX_UNAVAILABLE', 'ARGUMENT_REFUSED'])
+
+function short(d, figure = null) {
+  const tag = figure === null ? 'PARTIAL' : `PARTIAL ${figure}`
+  if (!d || typeof d !== 'object') return `REFUSED: not an engine answer: ${String(d).slice(0, 160)}`
+  if ('outcome' in d || 'status' in d) {
+    if (d.status !== 'SUCCEEDED') {
+      const e = d.error || {}
+      return `REFUSED: ${d.status} ${`${e.code || ''} ${e.message || ''}`.trim().slice(0, 160)}`
+    }
+    const ws = (d.warnings || []).filter(w => w && SHORT_PUBLIC.has(w.code))
+    if (!['OK', 'EMPTY'].includes(d.outcome) || ws.length) {
+      return `${tag}: ${(ws.length ? `${ws[0].code}: ${ws[0].message || ''}` : `outcome ${d.outcome}`).slice(0, 200)}`
+    }
+    return null
+  }
+  if (d.error) return `REFUSED: ${String(d.error).slice(0, 160)}`
+  if (d.run) return `${tag}: the run had not finished (${JSON.stringify(d.run)})`
+  const ws = (d.warnings || []).filter(w => typeof w === 'string' && SHORT_CODES.has(w.split(':')[0].trim()))
+  if (ws.length) return `${tag}: ${ws[0].slice(0, 200)}`
+  if (SHORT_REASONS.has(d.reason)) return `${tag}: reason ${d.reason}`
+  return null
+}
+
 const auth = 'Basic ' + Buffer.from(`${user}:${password}`).toString('base64');
 async function invoke(name, args) {
   const res = await fetch(`${base}/api/v1/views/${encodeURIComponent(name)}/invoke`, {
     method: 'POST', headers: { Authorization: auth, 'Content-Type': 'application/json' }, body: JSON.stringify({ args }),
   });
   const body = await res.json().catch(() => ({}));
-  const problem = res.status !== 200 || body.status !== 'SUCCEEDED'
-    ? `${res.status} ${body.status ?? ''} ${body.error?.message?.slice(0, 160) ?? ''}` : null;
-  return { problem, rows: body.data ?? [] };
+  const problem = res.status !== 200 ? `${res.status} ${body.status ?? ''} ${body.error?.message?.slice(0, 160) ?? ''}`
+    : short(body, (body.data ?? []).length);
+  /* A short answer's rows are not handed on: a figure check must fail on the reason, not count part of it. */
+  return { problem, rows: problem ? [] : body.data ?? [] };
 }
 
 let failures = 0;
 const report = (ok, line) => { if (!ok) failures++; console.log(`${ok ? 'PASS' : 'FAIL'}  ${line}`); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* The rows behind an exact figure, or none with the engine's reason reported as the failure. */
+async function figures(name, args) {
+  const { problem, rows } = await invoke(name, args);
+  if (problem) report(false, `${name} ${JSON.stringify(args)}: ${problem}`);
+  return { rows };
+}
 
 const viewsDir = new URL('../views/', import.meta.url).pathname;
 const names = readdirSync(viewsDir).filter(f => f.endsWith('.yml'))
@@ -44,35 +92,35 @@ for (const name of names) {
 
 console.log('\n== exact figures');
 {
-  const { rows } = await invoke('LatestComparison', {});
+  const { rows } = await figures('LatestComparison', {});
   const got = rows.map(r => ({ compareAs: r.compareAs, place: r.place, source: r.source, period: r.period, people: r.people, per10k: r.per10k ?? null }))
     .sort((a, b) => (a.compareAs + a.place + a.source).localeCompare(b.compareAs + b.place + b.source));
   const want = expected.latestComparison.map(r => ({ ...r, per10k: r.per10k ?? null }));
   report(same(got, want), `LatestComparison: ${got.length} rows${same(got, want) ? '' : '\n   got  ' + JSON.stringify(got) + '\n   want ' + JSON.stringify(want)}`);
 }
 {
-  const { rows } = await invoke('VancouverSubregions', { year: 2025 });
+  const { rows } = await figures('VancouverSubregions', { year: 2025 });
   const got = Object.fromEntries(rows.map(r => [r.subregion, r.total]));
   report(same(Object.keys(got).sort().map(k => [k, got[k]]), Object.keys(expected.vancouverSubregions2025).sort().map(k => [k, expected.vancouverSubregions2025[k]])),
     `VancouverSubregions 2025: ${JSON.stringify(got)}`);
 }
 {
-  const { rows } = await invoke('SydneyStreetCount', {});
+  const { rows } = await figures('SydneyStreetCount', {});
   report(rows.length === expected.sydneyStreetCountPeriods, `SydneyStreetCount: ${rows.length} counts, want ${expected.sydneyStreetCountPeriods}`);
 }
 {
-  const { rows } = await invoke('GreaterSydneyStreetCount', {});
+  const { rows } = await figures('GreaterSydneyStreetCount', {});
   const got = Object.fromEntries(rows.map(r => [String(r.year), r.greaterSydney]));
   report(same(got, Object.fromEntries(Object.keys(got).map(k => [k, expected.greaterSydneyStreetCount[k]]))) && rows.length === 7,
     `GreaterSydneyStreetCount: ${JSON.stringify(got)}`);
 }
 {
-  const { rows } = await invoke('AbsHomelessGroups', { placeId: 'syd-metro', year: 2021 });
+  const { rows } = await figures('AbsHomelessGroups', { placeId: 'syd-metro', year: 2021 });
   const top = rows[0] ?? {};
   report(rows.length === 6 && top.people === 12163 && top.allHomeless === 25141, `AbsHomelessGroups Greater Sydney 2021: ${rows.length} groups, largest ${top.operationalGroup} ${top.people}`);
 }
 {
-  const { rows } = await invoke('HomelessnessPlaces', {});
+  const { rows } = await figures('HomelessnessPlaces', {});
   report(rows.length === expected.places, `HomelessnessPlaces: ${rows.length} places, want ${expected.places}`);
 }
 
