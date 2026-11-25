@@ -10,6 +10,7 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { short } from './lib/short.mjs';
 
 const base = process.env.APPLIANCE_URL ?? 'http://localhost:11043';
 const user = process.env.EMBABEL_USER ?? process.env.APPLIANCE_USER;
@@ -17,46 +18,9 @@ const password = process.env.EMBABEL_PASSWORD ?? process.env.APPLIANCE_PASSWORD;
 if (!user || !password) { console.error('Set EMBABEL_USER and EMBABEL_PASSWORD.'); process.exit(2); }
 const expected = JSON.parse(readFileSync(new URL('./expected.json', import.meta.url), 'utf8'));
 
-/*
- * Whether an engine answer is the whole truth. A source that failed under load, a capped page or a
- * refused hop leaves rows that look like an answer while the figure is short, and a check that reads
- * only the rows reports drift that is not the realm's. Query answers (/admin/kg/execute, /kg/ask)
- * carry `error`, `reason`, `run` and `warnings` as strings opening with the engine's code; a view
- * envelope carries `status`, `outcome` and `warnings` as {code, message}. short(d) is null when
- * whole, else the line to print in place of the figure: "REFUSED: <why>" or "PARTIAL <n>: <reason>".
- */
-const SHORT_CODES = new Set(['PARTIAL_RESULT', 'PRODUCER_ERROR', 'NEEDS_FILTER', 'NEEDS_PRODUCER', 'FILTER_REJECTED',
-  'UNPUSHED_FILTER', 'AMBIGUOUS_LABEL', 'INCOMPLETE_TRAVERSAL', 'INCOMPLETE_RANKING', 'INCOMPLETE_AGGREGATE',
-  'INCOMPLETE_INPUT', 'MATERIALIZATION_FAILED', 'REDUCTION_FAILED', 'UNPARSEABLE_ANSWER', 'TERMS_UNAVAILABLE',
-  'COMPUTE_FAILED', 'PROPERTY_NOT_STORED', 'FOLLOW_CAPPED', 'UNLINKED_CHILDREN', 'RESOLUTION_DROPPED',
-  'AGENTIC_DEGRADED', 'SOURCE_UNANSWERED'])
-const SHORT_REASONS = new Set(['UNBOUNDED', 'PARTIAL_NOT_MATCHED', 'UNPUSHED_FILTER', 'DISCONNECTED',
-  'INTERNAL_ERROR', 'WRITE_IN_PROGRESS', 'KILLED', 'TOO_EXPENSIVE'])
-const SHORT_PUBLIC = new Set(['PARTIAL', 'REDUCTION_FAILED', 'COMPUTE_FAILED', 'PROPERTY_NOT_STORED',
-  'AGENTIC_DEGRADED', 'RATE_LIMITED', 'SOURCE_UNAVAILABLE', 'SOURCE_REJECTED', 'INVALID_FILTER',
-  'UNPUSHED_FILTER', 'TOO_BROAD', 'FETCH_CAPPED', 'INDEX_UNAVAILABLE', 'ARGUMENT_REFUSED'])
-
-function short(d, figure = null) {
-  const tag = figure === null ? 'PARTIAL' : `PARTIAL ${figure}`
-  if (!d || typeof d !== 'object') return `REFUSED: not an engine answer: ${String(d).slice(0, 160)}`
-  if ('outcome' in d || 'status' in d) {
-    if (d.status !== 'SUCCEEDED') {
-      const e = d.error || {}
-      return `REFUSED: ${d.status} ${`${e.code || ''} ${e.message || ''}`.trim().slice(0, 160)}`
-    }
-    const ws = (d.warnings || []).filter(w => w && SHORT_PUBLIC.has(w.code))
-    if (!['OK', 'EMPTY'].includes(d.outcome) || ws.length) {
-      return `${tag}: ${(ws.length ? `${ws[0].code}: ${ws[0].message || ''}` : `outcome ${d.outcome}`).slice(0, 200)}`
-    }
-    return null
-  }
-  if (d.error) return `REFUSED: ${String(d.error).slice(0, 160)}`
-  if (d.run) return `${tag}: the run had not finished (${JSON.stringify(d.run)})`
-  const ws = (d.warnings || []).filter(w => typeof w === 'string' && SHORT_CODES.has(w.split(':')[0].trim()))
-  if (ws.length) return `${tag}: ${ws[0].slice(0, 200)}`
-  if (SHORT_REASONS.has(d.reason)) return `${tag}: reason ${d.reason}`
-  return null
-}
+/* A figure is only this realm's when the engine says the answer is whole: short() is the battery
+ * library's (tests/lib, pinned from embabel-worlds/realm-spec), null when whole, else the line that
+ * stands in for the figure, "REFUSED: <why>" or "PARTIAL <figure>: <the engine's reason>". */
 
 const auth = 'Basic ' + Buffer.from(`${user}:${password}`).toString('base64');
 async function invoke(name, args) {
